@@ -1,0 +1,51 @@
+name: Docker Publish to GHCR
+
+# Run this workflow every time a change is pushed to the 'main' branch
+on:
+  push:
+    branches: [ main ]
+    # Optionally, trigger manually from the Actions tab
+  workflow_dispatch:
+
+env:
+  # Define the image name based on your repository
+  # Format: ghcr.io/<your-github-username-or-org>/<repository-name>
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}
+
+jobs:
+  build_and_push:
+    runs-on: ubuntu-latest
+    # Grant permissions for the workflow to read content and write packages
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          # Authenticate using the automatically generated GITHUB_TOKEN
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: . # Assumes your Dockerfile is in the root directory
+          # If your Dockerfile is elsewhere (e.g., ./apps/builder), change 'context'
+          # file: ./path/to/your/Dockerfile # Uncomment and set if Dockerfile isn't named 'Dockerfile'
+          push: true
+          tags: ${{ env.IMAGE_NAME }}:latest # Tag the image as 'latest'
+          # Optional: Add other tags like version numbers or commit SHA
+          # tags: |
+          #   ${{ env.IMAGE_NAME }}:latest
+          #   ${{ env.IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha # Use GitHub Actions cache for faster builds
+          cache-to: type=gha,mode=max
